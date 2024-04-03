@@ -1,0 +1,12 @@
+print("started script")
+from transformers import AutoModelForCausalLM, AutoTokenizer
+print("imported...")
+
+tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-chat-hf", device_map = "auto")
+
+print("model loaded!")
+
+prompt = "In the era of generative AI, "
+tokenized_prompt = tokenizer(prompt)
+model.generate()
