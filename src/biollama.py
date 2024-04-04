@@ -6,10 +6,13 @@ import torch
 from typing import List
 from retrieval import load_db
 
-def RETRO_fit(biollama, RETRO_layer_ids):
+def RETRO_fit_layer(layer, i, biollama, torch_dtype):
+    return
+
+def RETRO_fit(biollama, RETRO_layer_ids, torch_dtype):
     for i, layer in enumerate(biollama.model.model.layers): # switch pre-specified decoder layers to be a RETRO layer
         if i in RETRO_layer_ids:
-            RETROfit_layer(layer, i, biollama, torch_dtype) 
+            RETRO_fit_layer(layer, i, biollama, torch_dtype) 
     return
 
 def load_RETRO_weights(biollama, model_path, RETRO_layer_ids):
@@ -42,7 +45,7 @@ class BioLlama():
         self.model.generation_config.temperature = 0.01
 
         # Add RETRO modules and load respective weights if not training
-        RETRO_fit(self, RETRO_layer_ids = RETRO_layer_ids)
+        RETRO_fit(self, RETRO_layer_ids = RETRO_layer_ids, torch_dtype = torch_dtype)
         if not training: load_RETRO_weights(self, model_path = model_path, RETRO_layer_ids = RETRO_layer_ids)
 
         # save original .forward() call and then replace .forward() with new customized implementation
