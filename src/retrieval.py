@@ -4,7 +4,7 @@
 from typing import Tuple
 import faiss
 
-def load_db(db_name: str, retriever_name: str) -> Tuple[faiss.IndexFlatIP, dict]:
+def load_db(db_name: str, retriever_name: str, neighbour_length: int) -> Tuple[faiss.IndexFlatIP, dict]:
     """
     Args:
         db_name (str): The name of the database to load.
