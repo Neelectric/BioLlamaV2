@@ -1,16 +1,11 @@
 ### Main inference file to run an experiment
 ### Written by Neel Rajani
 
+from typing import List
+import torch
 from load_benchmark import load_benchmark
 from promptify import promptify
-
-def prepare_model_path(
-        model_type: str,
-        model_size: str,
-        model_state: str,
-) -> str:
-    model_path = "meta-llama/Llama-2-13b-chat-hf"
-    return model_path
+from model_kitchen import model
 
 
 def run_benchmark(
@@ -20,9 +15,10 @@ def run_benchmark(
         benchmark_name: str,
         benchmark_start_idx: int,
         num_questions: int,
-        retrieval_corpus: str,
-        retriever: str,
+        db_name: str,
+        retriever_name: str,
         neighbour_length: int,
+        RETRO_layer_ids: List[int]
         ):
     
     # Load the benchmark
@@ -37,17 +33,18 @@ def run_benchmark(
         promptified_question = promptify(benchmark_name = benchmark_name, question = question)
         prompts.append(promptified_question)
     
-    # Identify the correct model path
-    model_path = prepare_model_path(
+    # Create a model object
+    torch_dtype = torch.float32 # temporarily hardcoding this
+    llm = model(
         model_type = model_type,
         model_size = model_size,
-        model_state = model_state)
-    
-    # Create a model object
-    llm = llm(
-        model_path = model_path, 
-        model_size = model_size, 
-        model_state = model_state)
+        model_state = model_state,
+        torch_dtype = torch_dtype,
+        RETRO_layer_ids = RETRO_layer_ids,
+        training = False, # If benchmarking, training should never be true
+        retriever_name = retriever_name,
+        db_name = db_name,
+        neighbour_length = neighbour_length)
     
     # 
     return

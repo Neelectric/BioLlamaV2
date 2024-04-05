@@ -1,7 +1,7 @@
 ### A refactored and cleaned version of biollama.py in BioLlamaV1
 ### Written by Neel Rajani
 
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 from typing import List
 from retrieval import load_db
