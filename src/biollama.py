@@ -4,7 +4,7 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 from typing import List
-from retrieval import load_db
+from src.retrieval import load_db
 
 def RETRO_fit_layer(layer, i, biollama, torch_dtype):
     return

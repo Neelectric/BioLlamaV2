@@ -4,7 +4,7 @@
 from typing import List
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
-from biollama import BioLlama
+from src.biollama import BioLlama
 
 def prepare_model_path(
         model_type: str,
@@ -31,6 +31,22 @@ def model(
         model_size = model_size,
         model_state = model_state)
     
-    
-
-    return
+    # Create model as specified by model_type
+    if model_type == "Llama-2":
+        model = AutoModelForCausalLM.from_pretrained(model_path, 
+                                                    device_map = "auto",
+                                                    torch_dtype = torch_dtype, # Should still be hardcoded to float32
+                                                    cache_dir = "../hf_cache/")
+        model.tokenizer = AutoTokenizer.from_pretrained(model_path, 
+                                                  cache_dir = "../hf_cache/")
+    elif model_type == "BioLlama":
+        model = BioLlama(
+            model_path = model_path,
+            torch_dtype = torch_dtype,
+            RETRO_layer_ids = RETRO_layer_ids,
+            training = False,
+            retriever_name = retriever_name,
+            db_name = db_name,
+            neighbour_length = neighbour_length,
+        )       
+    return model

@@ -3,9 +3,9 @@
 
 from typing import List
 import torch
-from load_benchmark import load_benchmark
-from promptify import promptify
-from model_kitchen import model
+from src.load_benchmark import load_benchmark
+from src.promptify import promptify
+from src.model_kitchen import model
 
 
 def run_benchmark(
