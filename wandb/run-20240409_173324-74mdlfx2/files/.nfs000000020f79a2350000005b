@@ -1,0 +1,31 @@
+/opt/miniconda3/envs/biollama/lib/python3.12/site-packages/tqdm/auto.py:21: TqdmWarning: IProgress not found. Please update jupyter and ipywidgets. See https://ipywidgets.readthedocs.io/en/stable/user_install.html
+  from .autonotebook import tqdm as notebook_tqdm
+imported...
+4.39.3
+Using dtype: torch.float32
+started script
+
+Loading checkpoint shards: 100%|██████████| 2/2 [00:07<00:00,  3.97s/it]
+model loaded!
+Question.
+Low insulin to glucagon ratio is not seen in:
+(A) Glycogen synthesis
+(B) Glycogen breakdown
+(C) Gluconeogenesis
+(D) Ketogenesis
+Answer.
+(D) Ketogenesis
+Explanation:
+A low insulin to glucagon ratio is typically seen in states of ketosis, where the body is relying on ketones for energy instead of glucose. Therefore, option (D) Ketogenesis is the correct answer.
+Glycogen synthesis (A) and glycogen breakdown (B) are processes that occur in the liver and are regulated by insulin and glucagon, respectively. Gluconeogenesis (C) is the process by which the liver and kidneys produce glucose from non-carbohydrate sources, such as amino ac
+newly generated 150
+20.485244009078365 t/s
+/nfs/primary/pubmed_cleaned/
+['abs_1_14.tsv', 'abs_1_15.tsv', 'abs_1_23.tsv', 'abs_1_0.tsv', 'abs_1_30.tsv']
+/nfs/primary/pubmed_cleaned/abs_1_14.tsv
+Total params: 6738.42M, Trainable: 6607.34M
+/opt/miniconda3/envs/biollama/lib/python3.12/site-packages/accelerate/accelerator.py:436: FutureWarning: Passing the following arguments to `Accelerator` is deprecated and will be removed in version 1.0 of Accelerate: dict_keys(['dispatch_batches', 'split_batches', 'even_batches', 'use_seedable_sampler']). Please pass an `accelerate.DataLoaderConfiguration` instead:
+dataloader_config = DataLoaderConfiguration(dispatch_batches=None, split_batches=False, even_batches=True, use_seedable_sampler=True)
+  warnings.warn(
+Detected kernel version 3.10.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
