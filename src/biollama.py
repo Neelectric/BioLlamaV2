@@ -3,6 +3,7 @@
 
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
+from time import time
 from typing import List
 from src.retrieval import load_db
 
@@ -53,9 +54,14 @@ class BioLlama():
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, cache_dir = "../hf_cache/")
         self.model = AutoModelForCausalLM.from_pretrained(model_path, 
                                                           cache_dir = "../hf_cache/", 
-                                                          device_map = "auto", 
+                                                        #   device_map = "auto", 
+                                                          device_map = "cuda:0",
                                                           torch_dtype = torch_dtype)
-        self.model.generation_config.temperature = 0.01
+        self.model.generation_config.temperature = None
+        self.model.generation_config.use_cache = False # Editing the generation config to use
+        self.model.generation_config.do_sample = False # GenerationMode.GREEDY_SEARCH in the hopes
+        self.model.generation_config.top_k = None # that this makes generation deterministic
+        self.model.generation_config.top_p = None
 
         # Add RETRO modules and load respective weights if not training
         RETRO_fit(self, RETRO_layer_ids = RETRO_layer_ids, torch_dtype = torch_dtype)
@@ -67,7 +73,9 @@ class BioLlama():
 
         # Prepare all retrieval components, ie. retriever, retrieval corpus and retrieved chunk storage
         attach_retriever(self, retriever = retriever_name)
-        self.db_faiss, self.db_json = load_db(db_name = db_name, retriever_name = retriever_name, neighbour_length = neighbour_length)
+        self.db_faiss, self.db_json = load_db(db_name = db_name, 
+                                              retriever_name = retriever_name, 
+                                              neighbour_length = neighbour_length)
         self.neighbour_storage = None
         return
     
@@ -76,10 +84,15 @@ class BioLlama():
         inputs = self.tokenizer(prompt, return_tensors="pt", padding=padding)
         self.model.input_ids_biollama = inputs["input_ids"] # Storing the input_ids to access them again later
         self.model.prompt_biollama = prompt # Same for pure prompt
-        generated_tokens = self.model.generate(inputs.input_ids.to(self.device), max_new_tokens=max_new_tokens, use_cache=False)
+        self.model.generation_config.max_new_tokens = max_new_tokens
+        time_before = time()
+        generated_tokens = self.model.generate(inputs.input_ids.to(self.device), 
+                                               **self.model.generation_config.to_dict())
+        time_after = time()
+        time_taken = time_after - time_before
         num_new_tokens = len(generated_tokens[0]) - len(inputs.input_ids[0])
         output = self.tokenizer.batch_decode(generated_tokens, skip_special_tokens=True, clean_up_tokenization_spaces=False,)[0]
-        return (output, num_new_tokens)
+        return (output, num_new_tokens, time_taken)
     
     
 

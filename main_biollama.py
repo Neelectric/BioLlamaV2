@@ -13,7 +13,6 @@ Low insulin to glucagon ratio is not seen in:
 (C) Gluconeogenesis
 (D) Ketogenesis
 Answer. 
-Let's think step by step. To this end, let's first reflect on the question and which concepts will be relevant in answering it. Then, let's brainstorm on how concepts in the answer options relate back to it. Finally, let's evaluate each option in relation to the question, choosing one.
 """
 llama_path = "meta-llama/Llama-2-7b-chat-hf"
 torch_dtype = torch.float16
@@ -28,10 +27,8 @@ biollama = BioLlama(model_path = llama_path,
                     db_name = db_name,
                     neighbour_length = neighbour_length)
 
-time_before = time()
-output, num_new_tokens = biollama.generate(medmcqa2)
-time_after = time()
-time_taken = time_after - time_before
+output, num_new_tokens, time_taken = biollama.generate(medmcqa2, max_new_tokens=50)
 print(output)
+print(torch_dtype)
 print(f"newly generated {num_new_tokens}")
 print(f"{num_new_tokens / time_taken} t/s")
