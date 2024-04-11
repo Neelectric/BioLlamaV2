@@ -6,7 +6,7 @@ import torch
 import os
 import numpy as np
 from tqdm import tqdm
-
+import json
 
 # Helper function to return 32 token chunks from prompt
 def split_into_chunks(text, max_chunk_length=32):
@@ -45,11 +45,12 @@ with open('/root/nfs/pubmed_cleaned/abs_1_0.tsv', "r") as f:
 
 batch_size = 128
 all_embeddings = []
+all_chunks = []
 
 count = 0
 
 with open('/root/nfs/pubmed_cleaned/abs_1_0.tsv', 'r') as file:
-    all_tokenized = []
+    all_chunks = []
     lines = file.readlines()
     for start_idx in tqdm(range(0, len(lines), batch_size)):
         if count == 25:
@@ -61,11 +62,11 @@ with open('/root/nfs/pubmed_cleaned/abs_1_0.tsv', 'r') as file:
         for abstract in batch_abstracts:
             chunks = split_into_chunks(abstract)
             if chunks != []:
-                all_tokenized += chunks
+                all_chunks += chunks
         count += 1
         
         
-    tokens = document_tokenizer(all_tokenized, padding=True, return_tensors="pt")
+    tokens = document_tokenizer(all_chunks, padding=True, return_tensors="pt")
     input_ids = tokens.input_ids.to("cuda")
         
 
@@ -75,3 +76,11 @@ with open('/root/nfs/pubmed_cleaned/abs_1_0.tsv', 'r') as file:
 
 embeds_path = os.path.join(embeds_dir, f"{tsv_basename}.npy")
 np.save(embeds_path, np.array(all_embeddings))
+
+lookup_table = {}
+lookup_count = 0
+for (chunk, embed) in zip(all_chunks,all_embeddings):
+    lookup_table[lookup_count] = chunk
+    lookup_count += 1
+with open('/root/nfs/pubmed_cleaned_index/lookup_table.json', 'w') as json_file:
+    json.dump(lookup_table, json_file)
