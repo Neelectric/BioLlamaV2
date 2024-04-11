@@ -78,6 +78,7 @@ class BioLlama():
                                               neighbour_length = neighbour_length)
         self.neighbour_storage = None
         return
+    # encode the queries (use the [CLS] last hidden states as the representations)
     
     def generate(self, prompt, max_new_tokens = 50):
         padding = False # keeping this for now, may need to change for batch generation
