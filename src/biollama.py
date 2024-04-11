@@ -6,22 +6,31 @@ import torch
 from typing import List
 from src.retrieval import load_db
 
-def RETRO_fit_layer(layer, i, biollama, torch_dtype):
+
+def attach_retriever(biollama, retriever):
     return
 
-def RETRO_fit(biollama, RETRO_layer_ids, torch_dtype):
-    for i, layer in enumerate(biollama.model.model.layers): # switch pre-specified decoder layers to be a RETRO layer
-        if i in RETRO_layer_ids:
-            RETRO_fit_layer(layer, i, biollama, torch_dtype) 
-    return
+# Custom forward pass that stores current input ids as model attribute for later access
+def new_forward(biollama, *args, **kwargs):
+    if "input_ids" in kwargs:
+        biollama.input_ids_biollama = kwargs["input_ids"]
+        output = biollama.old_forward(*args, **kwargs)
+    else:
+        raise Exception("input_ids or labels not found in kwargs")
+    return output
 
 def load_RETRO_weights(biollama, model_path, RETRO_layer_ids):
     return
 
-def new_forward(biollama, *args, **kwargs):
+# Adds RMSNorm and LlamaSdpaAttention modules to given layer
+def RETRO_fit_layer(layer, i, biollama, torch_dtype):
     return
 
-def attach_retriever(biollama, retriever):
+# Switches specified decoder layers to be a RETRO layer
+def RETRO_fit(biollama, RETRO_layer_ids, torch_dtype):
+    for i, layer in enumerate(biollama.model.model.layers):
+        if i in RETRO_layer_ids:
+            RETRO_fit_layer(layer, i, biollama, torch_dtype) 
     return
 
 class BioLlama():
@@ -40,8 +49,12 @@ class BioLlama():
             ):
         
         # Model setup
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, cache_dir = "../hf_cache/")
-        self.model = AutoModelForCausalLM.from_pretrained(model_path, cache_dir = "../hf_cache/", device_map = "auto", torch_dtype = torch_dtype)
+        self.model = AutoModelForCausalLM.from_pretrained(model_path, 
+                                                          cache_dir = "../hf_cache/", 
+                                                          device_map = "auto", 
+                                                          torch_dtype = torch_dtype)
         self.model.generation_config.temperature = 0.01
 
         # Add RETRO modules and load respective weights if not training
@@ -58,8 +71,15 @@ class BioLlama():
         self.neighbour_storage = None
         return
     
-    def generate():
-        return
+    def generate(self, prompt, max_new_tokens = 50):
+        padding = False # keeping this for now, may need to change for batch generation
+        inputs = self.tokenizer(prompt, return_tensors="pt", padding=padding)
+        self.model.input_ids_biollama = inputs["input_ids"] # Storing the input_ids to access them again later
+        self.model.prompt_biollama = prompt # Same for pure prompt
+        generated_tokens = self.model.generate(inputs.input_ids.to(self.device), max_new_tokens=max_new_tokens, use_cache=False)
+        num_new_tokens = len(generated_tokens[0]) - len(inputs.input_ids[0])
+        output = self.tokenizer.batch_decode(generated_tokens, skip_special_tokens=True, clean_up_tokenization_spaces=False,)[0]
+        return (output, num_new_tokens)
     
     
 
