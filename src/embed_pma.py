@@ -14,7 +14,7 @@ def split_into_chunks(text, max_chunk_length=32):
     # inputs = llama2_tokenizer(text, return_tensors="pt", padding=False)
     chunks = []
     if len(tokens) < max_chunk_length:
-         return [text]
+         return []
     for i in range(0, len(tokens), max_chunk_length):
          if (i+max_chunk_length) <= len(tokens):
             chunk = tokens[i:i+max_chunk_length]
@@ -32,8 +32,7 @@ os.makedirs(embeds_dir, exist_ok=True)
 
 
 tsv_basename = os.path.basename('/root/nfs/pubmed_cleaned/abs_1_0.tsv').split(".")[0]
-embeds_for_file = []
-batch_size = 128
+
 
 def blocks(files, size=65536):
     while True:
@@ -44,21 +43,35 @@ def blocks(files, size=65536):
 with open('/root/nfs/pubmed_cleaned/abs_1_0.tsv', "r") as f:
     print(sum(bl.count("\n") for bl in blocks(f)))
 
+batch_size = 128
+all_embeddings = []
+
+count = 0
 
 with open('/root/nfs/pubmed_cleaned/abs_1_0.tsv', 'r') as file:
+    all_tokenized = []
     lines = file.readlines()
-    for line in tqdm(lines):
-            abstract = line.strip()
+    for start_idx in tqdm(range(0, len(lines), batch_size)):
+        if count == 25:
+            break
+        end_idx = min(start_idx + batch_size, len(lines))
+        batch_abstracts = [line.strip() for line in lines[start_idx:end_idx]]
+        
+        batch_chunks = [split_into_chunks(abstract) for abstract in batch_abstracts]
+        for abstract in batch_abstracts:
             chunks = split_into_chunks(abstract)
-            with torch.no_grad(): # Code taken directly from MedCPT github
-                encoded = document_tokenizer(
-                    chunks, 
-                    truncation=True, 
-                    padding=True, 
-                    return_tensors='pt', 
-                    max_length=512,
-                ).to("cuda")
-                embeds = document_model(**encoded).last_hidden_state[:, 0, :] 
-                embeds_for_file.extend(embeds.cpu().numpy())
+            if chunks != []:
+                all_tokenized += chunks
+        count += 1
+        
+        
+    tokens = document_tokenizer(all_tokenized, padding=True, return_tensors="pt")
+    input_ids = tokens.input_ids.to("cuda")
+        
+
+    with torch.no_grad():
+        embeds = document_model(input_ids).last_hidden_state[:, 0, :]
+        all_embeddings.extend(embeds.cpu().numpy())
+
 embeds_path = os.path.join(embeds_dir, f"{tsv_basename}.npy")
-np.save(embeds_path, np.array(embeds_for_file))
+np.save(embeds_path, np.array(all_embeddings))
