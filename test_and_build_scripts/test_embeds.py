@@ -9,9 +9,9 @@ import json
 
 path = '/root/nfs/pubmed_cleaned_embeds/'
 embeds = []
-# for file in os.listdir(path):
-#     if(file.endswith(".npy")):
-#         temp = np.load(os.path.join(path, file))
+for file in os.listdir(path):
+    if(file.endswith(".npy")):
+        temp = np.load(os.path.join(path, file))
 
 with open('/root/nfs/pubmed_cleaned_index/lookup_table.json', "r") as file:
     lookup_table = json.load(file)

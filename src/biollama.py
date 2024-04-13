@@ -7,55 +7,82 @@ from transformers.modeling_utils import load_state_dict
 import torch
 from time import time
 from typing import List
+import types
 from src.retrieval import load_db
 
 
-def attach_retriever(biollama, retriever):
+def attach_retriever(self, retriever):
     return
 
 # Custom forward pass that stores current input ids as model attribute for later access
-def new_forward(biollama, *args, **kwargs):
+def new_forward(self, *args, **kwargs):
     if "input_ids" in kwargs:
-        biollama.input_ids_biollama = kwargs["input_ids"]
-        output = biollama.old_forward(*args, **kwargs)
+        self.input_ids_biollama = kwargs["input_ids"]
+        output = self.old_forward(*args, **kwargs)
     else:
         raise Exception("input_ids or labels not found in kwargs")
     return output
 
-def load_RETRO_weights(biollama, model_path, RETRO_layer_ids):
+def load_RETRO_weights(self, model_path, RETRO_layer_ids):
     return
+
+def cca_attn(self, hidden_states):
+    input_ids = self.biollama.model.input_ids_biollama[0]
+    print("entered cca_attn!")
+    print(f"input_ids have length: {len(input_ids)}")
+    return hidden_states
+
+
 
 # Custom forward pass for RETRO layers, adapts the HF transformers implementaiton with insights from intermediate decoding blogpost
 def RETRO_layer_forward(self, *args, **kwargs):
+
     hidden_states = args[0]
+    attention_mask = kwargs["attention_mask"]  # should be torch.FloatTensor with  `(batch_size, 1,query_sequence_length, key_sequence_length)`
+    position_ids = kwargs["position_ids"]
+    past_key_value = kwargs["past_key_value"]
+    output_attentions = kwargs["output_attentions"]
+    use_cache = kwargs["use_cache"]
+    input_ids = self.biollama.model.input_ids_biollama
 
     # Self-Attention (with RMSNorm and residual connection)
     residual = hidden_states
     hidden_states = self.input_layernorm(hidden_states)
-    if (hidden_states.device != residual.device): residual = residual.to(hidden_states.device)
     hidden_states, self_attn_weights, present_key_value = self.self_attn(
         hidden_states = hidden_states,
-        attention_mask = args[1],
-        position_ids = args[2],
-        past_key_value = args[3],
-        output_attentions = args[4],
-        use_cache = args[5]
+        attention_mask = attention_mask,
+        position_ids = position_ids,
+        past_key_value = past_key_value,
+        output_attentions = output_attentions,
+        use_cache = use_cache
     )
-    if (hidden_states.device != residual.device): residual = residual.to(hidden_states.device)
+    # if (hidden_states.device != residual.device): residual = residual.to(hidden_states.device)
     hidden_states = hidden_states + residual
 
     # Chunked Cross-Attention (with RMSNorm and residual connection)
     residual = hidden_states
     hidden_states = self.pre_cca_layernorm(hidden_states)
+    hidden_states = self.cca_attn(
+        hidden_states = hidden_states,
+        # input_ids = input_ids
+    )
+    hidden_states = hidden_states + residual
 
-
-    return
+    # Multi-Layer Perceptrion (with RMSNorm and residual connection)
+    residual = hidden_states
+    hidden_states = self.post_attention_layernorm(hidden_states)
+    hidden_states = self.mlp(hidden_states)
+    hidden_states = hidden_states + residual
+    outputs = (hidden_states,)
+    return outputs
 
 # Adds RMSNorm and LlamaSdpaAttention modules to given layer
 def RETRO_fit_layer(layer, layer_id, biollama, torch_dtype):
     config = biollama.model.config
     layer.biollama = biollama
     layer.cca_attn = LlamaSdpaAttention(config = config, layer_idx = layer_id).to(device = biollama.device, dtype = torch_dtype)
+    layer.cca_attn.forward = cca_attn.__get__(layer.cca_attn)
+    layer.cca_attn.biollama = biollama
     layer.pre_cca_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps).to(device = biollama.device, dtype = torch_dtype) # Still need to ensure if this actually trains?
     layer.forward = RETRO_layer_forward.__get__(layer)
     return
@@ -90,11 +117,9 @@ class BioLlama():
                                                         #   device_map = "auto", 
                                                           device_map = "cuda:0",
                                                           torch_dtype = torch_dtype)
-        self.model.generation_config.temperature = None
         self.model.generation_config.use_cache = False # Editing the generation config to use
         self.model.generation_config.do_sample = False # GenerationMode.GREEDY_SEARCH in the hopes
         self.model.generation_config.top_k = None # that this makes generation deterministic
-        self.model.generation_config.top_p = None
 
         # Add RETRO modules and load respective weights if not training
         RETRO_fit(self, RETRO_layer_ids = RETRO_layer_ids, torch_dtype = torch_dtype)
