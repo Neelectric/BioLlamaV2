@@ -2,6 +2,8 @@
 ### Written by Neel Rajani
 
 from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers.models.llama.modeling_llama import LlamaSdpaAttention, LlamaRMSNorm
+from transformers.modeling_utils import load_state_dict
 import torch
 from time import time
 from typing import List
@@ -23,15 +25,46 @@ def new_forward(biollama, *args, **kwargs):
 def load_RETRO_weights(biollama, model_path, RETRO_layer_ids):
     return
 
+# Custom forward pass for RETRO layers, adapts the HF transformers implementaiton with insights from intermediate decoding blogpost
+def RETRO_layer_forward(self, *args, **kwargs):
+    hidden_states = args[0]
+
+    # Self-Attention (with RMSNorm and residual connection)
+    residual = hidden_states
+    hidden_states = self.input_layernorm(hidden_states)
+    if (hidden_states.device != residual.device): residual = residual.to(hidden_states.device)
+    hidden_states, self_attn_weights, present_key_value = self.self_attn(
+        hidden_states = hidden_states,
+        attention_mask = args[1],
+        position_ids = args[2],
+        past_key_value = args[3],
+        output_attentions = args[4],
+        use_cache = args[5]
+    )
+    if (hidden_states.device != residual.device): residual = residual.to(hidden_states.device)
+    hidden_states = hidden_states + residual
+
+    # Chunked Cross-Attention (with RMSNorm and residual connection)
+    residual = hidden_states
+    hidden_states = self.pre_cca_layernorm(hidden_states)
+
+
+    return
+
 # Adds RMSNorm and LlamaSdpaAttention modules to given layer
-def RETRO_fit_layer(layer, i, biollama, torch_dtype):
+def RETRO_fit_layer(layer, layer_id, biollama, torch_dtype):
+    config = biollama.model.config
+    layer.biollama = biollama
+    layer.cca_attn = LlamaSdpaAttention(config = config, layer_idx = layer_id).to(device = biollama.device, dtype = torch_dtype)
+    layer.pre_cca_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps).to(device = biollama.device, dtype = torch_dtype) # Still need to ensure if this actually trains?
+    layer.forward = RETRO_layer_forward.__get__(layer)
     return
 
 # Switches specified decoder layers to be a RETRO layer
 def RETRO_fit(biollama, RETRO_layer_ids, torch_dtype):
-    for i, layer in enumerate(biollama.model.model.layers):
-        if i in RETRO_layer_ids:
-            RETRO_fit_layer(layer, i, biollama, torch_dtype) 
+    for id, layer in enumerate(biollama.model.model.layers):
+        if id in RETRO_layer_ids:
+            RETRO_fit_layer(layer, id, biollama, torch_dtype) 
     return
 
 class BioLlama():

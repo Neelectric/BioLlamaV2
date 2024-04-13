@@ -19,6 +19,7 @@ torch_dtype = torch.float16
 retriever_name = ""
 db_name = ""
 neighbour_length = -1
+print("about to instantiate biollama")
 biollama = BioLlama(model_path = llama_path,
                     torch_dtype = torch_dtype,
                     RETRO_layer_ids = [-1],
@@ -26,6 +27,8 @@ biollama = BioLlama(model_path = llama_path,
                     retriever_name = retriever_name,
                     db_name = db_name,
                     neighbour_length = neighbour_length)
+
+print("created biollama")
 
 output, num_new_tokens, time_taken = biollama.generate(medmcqa2, max_new_tokens=50)
 print(output)

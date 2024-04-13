@@ -4,7 +4,11 @@ echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.clou
 sudo apt-get update && sudo apt-get install google-cloud-cli
 
 
-for tmux:
+
+# for persistent tmux sessions (?)
 tmux -L tmux.sock attach
-or
+# or
 tmux -L tmux.sock
+
+# if it complains no such file or directory: '/root/.cache/huggingface/hub'
+export HF_HOME=../hf_cache

@@ -46,6 +46,7 @@ os.makedirs(embeds_dir, exist_ok=True)
 source_files = glob.glob("/root/nfs/pubmed_cleaned/*.tsv")
 lookup_table = {}
 lookup_count = 0
+file_count = 0
 
 for source_file in tqdm(source_files):
     # print(f"Processing {source_file}")
@@ -53,11 +54,13 @@ for source_file in tqdm(source_files):
     all_embeddings = []
     all_chunks = []
     tsv_basename = os.path.basename(source_file).split(".")[0]
+    if file_count == 2:
+        break
 
     with open(source_file, 'r') as file:
         all_chunks = []
         lines = file.readlines()
-        for start_idx in tqdm(range(0, len(lines), batch_size), disable=True):
+        for start_idx in tqdm(range(0, len(lines), batch_size)):
             end_idx = min(start_idx + batch_size, len(lines))
             batch_abstracts = [line.strip() for line in lines[start_idx:end_idx]]
             batch_chunks = [split_into_chunks(abstract) for abstract in batch_abstracts]
@@ -69,7 +72,7 @@ for source_file in tqdm(source_files):
         tokens = document_tokenizer(all_chunks, padding=True, return_tensors="pt")
         input_ids = tokens.input_ids.to("cuda")
         step_size = 50
-        for i in range(0, len(input_ids), step_size):
+        for i in tqdm(range(0, len(input_ids), step_size)):
             temp_input_ids = input_ids[i:i+step_size]
             with torch.no_grad():
                 embeds = document_model(temp_input_ids).last_hidden_state[:, 0, :]
@@ -81,5 +84,6 @@ for source_file in tqdm(source_files):
     for (chunk, embed) in zip(all_chunks,all_embeddings):
         lookup_table[lookup_count] = chunk
         lookup_count += 1
+    file_count += 1
 with open('/root/nfs/pubmed_cleaned_index/lookup_table.json', 'w') as json_file:
     json.dump(lookup_table, json_file)
