@@ -34,9 +34,7 @@ def load_db(db_name: str, retriever_name: str, neighbour_length: int) -> Tuple[f
     return cpu_index, db_json
 
 def retrieve(queries: List[str],
-             db_name: str,
              neighbour_length: int,
-             verbose: bool,
              query_tokenizer: PreTrainedTokenizerFast | PreTrainedTokenizer,
              query_model: BertModel,
              rerank_tokenizer,
@@ -92,8 +90,8 @@ def main():
     db_name = "pma"
     neighbour_length = 32
     verbose = True
-    query_tokenizer = AutoTokenizer.from_pretrained("ncbi/MedCPT-Article-Encoder")
-    query_model = AutoModel.from_pretrained("ncbi/MedCPT-Article-Encoder", device_map = "cuda:0")
+    query_tokenizer = AutoTokenizer.from_pretrained("ncbi/MedCPT-Query-Encoder")
+    query_model = AutoModel.from_pretrained("ncbi/MedCPT-Query-Encoder", device_map = "cuda:0")
     rerank_tokenizer = AutoTokenizer.from_pretrained("ncbi/MedCPT-Cross-Encoder")
     rerank_model = AutoModelForSequenceClassification.from_pretrained("ncbi/MedCPT-Cross-Encoder", device_map = "cuda:0")
     top_k = 5

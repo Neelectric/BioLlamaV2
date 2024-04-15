@@ -1,7 +1,7 @@
 ### A refactored and cleaned version of biollama.py in BioLlamaV1
 ### Written by Neel Rajani
 
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModel, AutoModelForSequenceClassification
 from transformers.models.llama.modeling_llama import LlamaSdpaAttention, LlamaRMSNorm
 from transformers.modeling_utils import load_state_dict
 import torch
@@ -9,10 +9,17 @@ from time import time
 from typing import List
 import types
 import math
-from src.retrieval import load_db
+from src.retrieval import load_db, retrieve
 
 
 def attach_retriever(self, retriever):
+    if retriever == "medcpt":
+        query_model = "ncbi/MedCPT-Query-Encoder"
+        rerank_model = "ncbi/MedCPT-Cross-Encoder"
+    self.query_tokenizer = AutoTokenizer.from_pretrained(query_model)
+    self.query_model = AutoModel.from_pretrained(query_model, device_map = "cuda:0")
+    self.rerank_tokenizer = AutoTokenizer.from_pretrained(rerank_model)
+    self.rerank_model = AutoModelForSequenceClassification.from_pretrained(rerank_model, device_map = "cuda:0")
     return
 
 # Custom forward pass that stores current input ids as model attribute for later access
@@ -27,44 +34,20 @@ def new_forward(self, *args, **kwargs):
 def load_RETRO_weights(self, model_path, RETRO_layer_ids):
     return
 
-def retrieve_neighbours(self):
-    # if self.biollama.retrieved_chunk_storage == None: # If this is first decoding step, retrieve neighbours and store them
-    #     E_no_continuations = medcpt_FAISS_retrieval(
-    #         H_list_decoded[0:l-1], # we do not retrieve for the last chunk, following RETRO
-    #         db_name="RCT200ktrain",
-    #         retrieval_text_mode="input_segmentation",
-    #         chunk_length=self.biollama.chunk_length,
-    #         verbose=False,
-    #         query_tokenizer=self.biollama.query_tokenizer, # passed as a pre-loaded object to save time
-    #         query_model=self.biollama.query_model, # passed as a pre-loaded object to save time
-    #         rerank_tokenizer=self.biollama.rerank_tokenizer, # passed as a pre-loaded object to save time
-    #         rerank_model=self.biollama.rerank_model, # passed as a pre-loaded object to save time
-    #         top_k=top_k, # normally retrieve top 2, following RETRO
-    #         k=k,
-    #         db_faiss=self.biollama.db_faiss, # passed as a pre-loaded object to save time
-    #         db_json=self.biollama.db_json, # passed as a pre-loaded object to save time
-    #     )    
-    #     self.biollama.retrieved_chunk_storage = E_no_continuations
-    # elif ((n-31) % 32 == 0) or (len(Hplus_list) > len(self.biollama.retrieved_chunk_storage)): # if this is not first decoding step, but we've generated enough to consider a new chunk, retrieve new neighbours and update store
-    #     E_no_continuations = medcpt_FAISS_retrieval(
-    #         H_list_decoded[0:l-1], # we do not retrieve for the last chunk, following RETRO
-    #         db_name="RCT200ktrain",
-    #         retrieval_text_mode="input_segmentation",
-    #         chunk_length=self.biollama.chunk_length,
-    #         verbose=False,
-    #         query_tokenizer=self.biollama.query_tokenizer, # passed as a pre-loaded object to save time
-    #         query_model=self.biollama.query_model, # passed as a pre-loaded object to save time
-    #         rerank_tokenizer=self.biollama.rerank_tokenizer, # passed as a pre-loaded object to save time
-    #         rerank_model=self.biollama.rerank_model, # passed as a pre-loaded object to save time
-    #         top_k=top_k, # retrieve top 2, following RETRO
-    #         k=k,
-    #         db_faiss=self.biollama.db_faiss, # passed as a pre-loaded object to save time
-    #         db_json=self.biollama.db_json, # passed as a pre-loaded object to save time
-    #     )    
-    #     self.biollama.retrieved_chunk_storage = E_no_continuations
-    # else: # otherwise, we do not need retrieval (as it would just retrieve the same as we already have stored)
-    #     E_no_continuations = self.biollama.retrieved_chunk_storage
-    return
+def retrieve_neighbours(self, queries, top_k, k):
+    biollama = self.biollama
+    E_no_continuations = retrieve(queries = queries,
+            neighbour_length = 32,
+            query_tokenizer = biollama.query_tokenizer,
+            query_model = biollama.query_model,
+            rerank_tokenizer = biollama.rerank_tokenizer,
+            rerank_model = biollama.rerank_model,
+            top_k = 1,
+            k = 5,
+            db_faiss = biollama.db_faiss, 
+            db_json = biollama.db_json)
+    biollama.neighbour_storage = E_no_continuations
+    return E_no_continuations
 
 def ca(self, Hplus, E_no_continuations) -> torch.Tensor:
     temp = torch.Tensor([])
@@ -98,8 +81,11 @@ def cca_attn(self, hidden_states):
     for i in range(m-1, num_spliced_chunks * m, m): # note: this for loop iterates differently than the one above
         Hplus_chunk = hidden_states[:,i:i+m:,:]
         Hplus_list.append(Hplus_chunk)
-
-    E_no_continuations = self.retrieve()
+    E_no_continuations = self.biollama.neighbour_storage
+    if (E_no_continuations == None) or (n-31 % 32 == 0) or (len(Hplus_list) > len(E_no_continuations)):
+        E_no_continuations = self.biollama.retrieve(queries = H_list_decoded[0:l-1],
+                                        top_k = top_k,
+                                        k = k)
     ca_list = torch.Tensor([])
     for i in range(len(Hplus_list)): # for these spliced chunks in Hplus_list, calculate cross attentions with neighbours
         Hplus_ca = ca(self, Hplus_list[i], E_no_continuations[i])
@@ -123,7 +109,6 @@ def RETRO_layer_forward(self, *args, **kwargs):
     past_key_value = kwargs["past_key_value"]
     output_attentions = kwargs["output_attentions"]
     use_cache = kwargs["use_cache"]
-    input_ids = self.biollama.model.input_ids_biollama
 
     # Self-Attention (with RMSNorm and residual connection)
     residual = hidden_states
@@ -159,17 +144,10 @@ def RETRO_fit_layer(layer, layer_id, biollama, torch_dtype):
     layer.biollama = biollama
     layer.cca_attn = LlamaSdpaAttention(config = config, layer_idx = layer_id).to(device = biollama.device, dtype = torch_dtype)
     layer.cca_attn.forward = cca_attn.__get__(layer.cca_attn)
-    layer.retrieve = retrieve_neighbours.__get__(layer)
+    biollama.retrieve = retrieve_neighbours.__get__(layer)
     layer.cca_attn.biollama = biollama
     layer.pre_cca_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps).to(device = biollama.device, dtype = torch_dtype) # Still need to ensure if this actually trains?
     layer.forward = RETRO_layer_forward.__get__(layer)
-    return
-
-# Switches specified decoder layers to be a RETRO layer
-def RETRO_fit(biollama, RETRO_layer_ids, torch_dtype):
-    for id, layer in enumerate(biollama.model.model.layers):
-        if id in RETRO_layer_ids:
-            RETRO_fit_layer(layer, id, biollama, torch_dtype) 
     return
 
 class BioLlama():
@@ -199,11 +177,15 @@ class BioLlama():
         self.model.generation_config.do_sample = False # GenerationMode.GREEDY_SEARCH in the hopes
         self.model.generation_config.top_k = None # that this makes generation deterministic
 
-        # Add RETRO modules and load respective weights if not training
-        RETRO_fit(self, RETRO_layer_ids = RETRO_layer_ids, torch_dtype = torch_dtype)
+        # Add RETRO modules to specified layers
+        for id, layer in enumerate(self.model.model.layers):
+            if id in RETRO_layer_ids:
+                RETRO_fit_layer(layer, id, self, torch_dtype) 
+
+        # Load respective weights if not training
         if not training: load_RETRO_weights(self, model_path = model_path, RETRO_layer_ids = RETRO_layer_ids)
 
-        # save original .forward() call and then replace .forward() with new customized implementation
+        # Save original .forward() call and then replace .forward() with new customized implementation
         self.model.old_forward = self.model.forward
         self.model.forward = new_forward.__get__(self.model)
 
@@ -215,7 +197,6 @@ class BioLlama():
         self.neighbour_length = neighbour_length
         self.neighbour_storage = None
         return
-    # encode the queries (use the [CLS] last hidden states as the representations)
     
     def generate(self, prompt, max_new_tokens = 50):
         padding = False # keeping this for now, may need to change for batch generation
