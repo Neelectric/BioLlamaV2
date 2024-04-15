@@ -28,42 +28,42 @@ def load_RETRO_weights(self, model_path, RETRO_layer_ids):
     return
 
 def retrieve_neighbours(self):
-    if self.biollama.retrieved_chunk_storage == None: # If this is first decoding step, retrieve neighbours and store them
-        E_no_continuations = medcpt_FAISS_retrieval(
-            H_list_decoded[0:l-1], # we do not retrieve for the last chunk, following RETRO
-            db_name="RCT200ktrain",
-            retrieval_text_mode="input_segmentation",
-            chunk_length=self.biollama.chunk_length,
-            verbose=False,
-            query_tokenizer=self.biollama.query_tokenizer, # passed as a pre-loaded object to save time
-            query_model=self.biollama.query_model, # passed as a pre-loaded object to save time
-            rerank_tokenizer=self.biollama.rerank_tokenizer, # passed as a pre-loaded object to save time
-            rerank_model=self.biollama.rerank_model, # passed as a pre-loaded object to save time
-            top_k=top_k, # normally retrieve top 2, following RETRO
-            k=k,
-            db_faiss=self.biollama.db_faiss, # passed as a pre-loaded object to save time
-            db_json=self.biollama.db_json, # passed as a pre-loaded object to save time
-        )    
-        self.biollama.retrieved_chunk_storage = E_no_continuations
-    elif ((n-31) % 32 == 0) or (len(Hplus_list) > len(self.biollama.retrieved_chunk_storage)): # if this is not first decoding step, but we've generated enough to consider a new chunk, retrieve new neighbours and update store
-        E_no_continuations = medcpt_FAISS_retrieval(
-            H_list_decoded[0:l-1], # we do not retrieve for the last chunk, following RETRO
-            db_name="RCT200ktrain",
-            retrieval_text_mode="input_segmentation",
-            chunk_length=self.biollama.chunk_length,
-            verbose=False,
-            query_tokenizer=self.biollama.query_tokenizer, # passed as a pre-loaded object to save time
-            query_model=self.biollama.query_model, # passed as a pre-loaded object to save time
-            rerank_tokenizer=self.biollama.rerank_tokenizer, # passed as a pre-loaded object to save time
-            rerank_model=self.biollama.rerank_model, # passed as a pre-loaded object to save time
-            top_k=top_k, # retrieve top 2, following RETRO
-            k=k,
-            db_faiss=self.biollama.db_faiss, # passed as a pre-loaded object to save time
-            db_json=self.biollama.db_json, # passed as a pre-loaded object to save time
-        )    
-        self.biollama.retrieved_chunk_storage = E_no_continuations
-    else: # otherwise, we do not need retrieval (as it would just retrieve the same as we already have stored)
-        E_no_continuations = self.biollama.retrieved_chunk_storage
+    # if self.biollama.retrieved_chunk_storage == None: # If this is first decoding step, retrieve neighbours and store them
+    #     E_no_continuations = medcpt_FAISS_retrieval(
+    #         H_list_decoded[0:l-1], # we do not retrieve for the last chunk, following RETRO
+    #         db_name="RCT200ktrain",
+    #         retrieval_text_mode="input_segmentation",
+    #         chunk_length=self.biollama.chunk_length,
+    #         verbose=False,
+    #         query_tokenizer=self.biollama.query_tokenizer, # passed as a pre-loaded object to save time
+    #         query_model=self.biollama.query_model, # passed as a pre-loaded object to save time
+    #         rerank_tokenizer=self.biollama.rerank_tokenizer, # passed as a pre-loaded object to save time
+    #         rerank_model=self.biollama.rerank_model, # passed as a pre-loaded object to save time
+    #         top_k=top_k, # normally retrieve top 2, following RETRO
+    #         k=k,
+    #         db_faiss=self.biollama.db_faiss, # passed as a pre-loaded object to save time
+    #         db_json=self.biollama.db_json, # passed as a pre-loaded object to save time
+    #     )    
+    #     self.biollama.retrieved_chunk_storage = E_no_continuations
+    # elif ((n-31) % 32 == 0) or (len(Hplus_list) > len(self.biollama.retrieved_chunk_storage)): # if this is not first decoding step, but we've generated enough to consider a new chunk, retrieve new neighbours and update store
+    #     E_no_continuations = medcpt_FAISS_retrieval(
+    #         H_list_decoded[0:l-1], # we do not retrieve for the last chunk, following RETRO
+    #         db_name="RCT200ktrain",
+    #         retrieval_text_mode="input_segmentation",
+    #         chunk_length=self.biollama.chunk_length,
+    #         verbose=False,
+    #         query_tokenizer=self.biollama.query_tokenizer, # passed as a pre-loaded object to save time
+    #         query_model=self.biollama.query_model, # passed as a pre-loaded object to save time
+    #         rerank_tokenizer=self.biollama.rerank_tokenizer, # passed as a pre-loaded object to save time
+    #         rerank_model=self.biollama.rerank_model, # passed as a pre-loaded object to save time
+    #         top_k=top_k, # retrieve top 2, following RETRO
+    #         k=k,
+    #         db_faiss=self.biollama.db_faiss, # passed as a pre-loaded object to save time
+    #         db_json=self.biollama.db_json, # passed as a pre-loaded object to save time
+    #     )    
+    #     self.biollama.retrieved_chunk_storage = E_no_continuations
+    # else: # otherwise, we do not need retrieval (as it would just retrieve the same as we already have stored)
+    #     E_no_continuations = self.biollama.retrieved_chunk_storage
     return
 
 def ca(self, Hplus, E_no_continuations) -> torch.Tensor:

@@ -21,17 +21,17 @@ def load_db(db_name: str, retriever_name: str, neighbour_length: int) -> Tuple[f
     index_path = '/root/nfs/pubmed_cleaned_index/'
     time_before_index_load = time()
     # db_faiss = faiss.read_index(index_path + retriever_name + "_index.faiss")
-    res = faiss.StandardGpuResources()
+    # res = faiss.StandardGpuResources()
     cpu_index = faiss.read_index(index_path + retriever_name + "_index.faiss")
-    gpu_index = faiss.GpuIndexFlat(res, cpu_index.d, cpu_index.metric_type)
-    gpu_index = faiss.index_cpu_to_gpu(res, gpu_index, cpu_index)
+    # gpu_index = faiss.GpuIndexFlat(res, cpu_index.d, cpu_index.metric_type)
+    # gpu_index = faiss.index_cpu_to_gpu(res, gpu_index, cpu_index)
     time_after_index_load = time()
     time_to_load_index = time_after_index_load - time_before_index_load
     print(f"Time to load index: {time_to_load_index}")
 
     with open("/root/nfs/pubmed_cleaned_index/lookup_table_" + retriever_name + ".json", "r") as file:
         db_json = json.load(file)
-    return gpu_index, db_json
+    return cpu_index, db_json
 
 def retrieve(queries: List[str],
              db_name: str,
@@ -47,7 +47,9 @@ def retrieve(queries: List[str],
              db_json: dict
              ) -> List[str]:
     output = []
+    print("retrieve was called")
     for query in queries:
+        print(f"Retrieving for query: {query}")
         with torch.no_grad(): # This code is taken directly from the MedCPT GitHub/HF tutorial
             # tokenize the queries
             encoded = query_tokenizer(
@@ -61,7 +63,7 @@ def retrieve(queries: List[str],
             # encoded.to("cuda:0")
             embeds = query_model(**encoded).last_hidden_state[:, 0, :]
         
-        distances, indices = db_faiss.search(embeds, k)
+        distances, indices = db_faiss.search(embeds.to('cpu').numpy(), k)
         distances = distances.flatten()
         indices = indices.flatten()
         neighbours = [db_json[str(idx)] for idx in indices]
