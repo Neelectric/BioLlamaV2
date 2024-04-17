@@ -84,10 +84,8 @@ def main():
     top_k = 5
     k = 5
     db_faiss, db_json = load_db(db_name, "medcpt", neighbour_length)
-    output = retrieve(queries, 
-                      db_name, 
-                      neighbour_length, 
-                      verbose, 
+    output = retrieve(queries,  
+                      neighbour_length,  
                       query_tokenizer, 
                       query_model, 
                       rerank_tokenizer, 
