@@ -22,12 +22,14 @@ def run_benchmark(
         ):
     
     # Load the benchmark
-    benchmark_questions, benchmark_answers = load_benchmark(benchmark_name = benchmark_name, 
-                                                            benchmark_stard_idx = benchmark_start_idx, 
-                                                            num_questions = num_questions)
+    benchmark_dataset = load_benchmark(benchmark_name = benchmark_name,
+                                benchmark_start_idx = benchmark_start_idx, 
+                                num_questions = num_questions)
     
     # Turn the questions into prompts
-    benchmark_end_idx = benchmark_start_idx + num_questions
+    benhchmark_prompt_list = promptify_benchmark(benchmark_dataset = benchmark_dataset,
+                                                benchmark_start_idx = benchmark_start_idx, 
+                                                num_questions = num_questions)
     prompts = []
     for question in benchmark_questions[benchmark_start_idx : benchmark_end_idx]:
         promptified_question = promptify(benchmark_name = benchmark_name, question = question)

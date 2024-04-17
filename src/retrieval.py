@@ -28,7 +28,8 @@ def load_db(db_name: str, retriever_name: str, neighbour_length: int) -> Tuple[f
     time_after_index_load = time()
     time_to_load_index = time_after_index_load - time_before_index_load
     print(f"Time to load index: {time_to_load_index}")
-
+    if retriever_name == "medcpt":
+        retriever_name = "definitive"
     with open("/root/nfs/pubmed_cleaned_index/lookup_table_" + retriever_name + ".json", "r") as file:
         db_json = json.load(file)
     return cpu_index, db_json
