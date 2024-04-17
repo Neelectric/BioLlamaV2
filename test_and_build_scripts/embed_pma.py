@@ -29,7 +29,7 @@ llama_path = "meta-llama/Llama-2-7b-chat-hf"
 medcpt_path = "ncbi/MedCPT-Article-Encoder"
 llama2_tokenizer = AutoTokenizer.from_pretrained(llama_path, cache_dir = "../hf_cache/")
 document_tokenizer = AutoTokenizer.from_pretrained(medcpt_path)
-document_model = AutoModel.from_pretrained(medcpt_path).to('cuda:1')
+document_model = AutoModel.from_pretrained(medcpt_path).to('cuda:0')
 embeds_dir = '/root/nfs/pubmed_cleaned_embeds'
 os.makedirs(embeds_dir, exist_ok=True)
 
@@ -38,8 +38,9 @@ source_files = glob.glob("/root/nfs/pubmed_cleaned/*.tsv")
 lookup_table = {}
 lookup_count = 0
 # file_count = 0
+
 for i, source_file in tqdm(enumerate(source_files)):
-    if i >= 23 and i < 26:
+    if i > 28 and i < 30:
         batch_size = 32
         all_embeddings = []
         all_chunks = []
@@ -59,9 +60,9 @@ for i, source_file in tqdm(enumerate(source_files)):
                         all_chunks += chunks
                 
                 tokens = document_tokenizer(all_chunks, padding=True, return_tensors="pt")
-                input_ids = tokens.input_ids.to("cuda:1")
+                input_ids = tokens.input_ids.to("cuda:0")
                 step_size = 25
-                for i in tqdm(range(0, len(input_ids), step_size)):
+                for i in tqdm(range(0, len(input_ids), step_size), disable = True):
                     temp_input_ids = input_ids[i:i+step_size]
                     with torch.no_grad():
                         embeds = document_model(temp_input_ids).last_hidden_state[:, 0, :]
