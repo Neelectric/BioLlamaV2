@@ -2,7 +2,7 @@
 ### Written by Neel Rajani
 
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModel, AutoModelForSequenceClassification
-from transformers.models.llama.modeling_llama import LlamaSdpaAttention, LlamaRMSNorm
+from transformers.models.llama.modeling_llama import LlamaSdpaAttention, LlamaRMSNorm, apply_rotary_pos_emb, repeat_kv
 from transformers.modeling_utils import load_state_dict
 import torch
 from time import time
@@ -49,14 +49,55 @@ def retrieve_neighbours(self, queries, top_k, k):
     biollama.neighbour_storage = E_no_continuations
     return E_no_continuations
 
-def ca(self, Hplus, E_no_continuations) -> torch.Tensor:
-    temp = torch.Tensor([])
-    return temp
+def ca(self, hidden_states, e) -> torch.Tensor:
+    # Tokenize and embed the neighbour E. Could be packaged into a function?
+    if type(e) == list: e = e[0] 
+    self.biollama.tokenizer.padding_side = 'left'  # This line and the following can be necessary to prevent padding bugs
+    self.biollama.tokenizer.pad_token = self.biollama.tokenizer.eos_token
+    e_encoded = self.biollama.tokenizer(e, return_tensors="pt", max_length=32, padding="max_length").to(self.q_proj.weight.device) # If E comes out shorter than 32 we pad (though it shouldn't)
+    e_input_ids = e_encoded.input_ids
+    e_input_ids = e_input_ids[:,0:32] # in case e is longer than 32 tokens, we truncate
+    embed_tokens = self.biollama.model.base_model.embed_tokens
+    e_encoded_and_embedded = embed_tokens(e_input_ids)
+    # if e_encoded_and_embedded.device != self.q_proj.weight.device: # sometimes it complains about tensors not being on same device
+    #     e_encoded_and_embedded = e_encoded_and_embedded.to(self.q_proj.weight.device)
+
+    # Perform cross-attention, with queries from hidden_states and keys/values from neighbours
+    bsz, q_len, _ = hidden_states.size()
+    position_ids = torch.arange(hidden_states.shape[-2], dtype=torch.long, device=hidden_states.device).unsqueeze(0)
+
+    query_states = self.q_proj(hidden_states)
+    key_states = self.k_proj(e_encoded_and_embedded)
+    value_states = self.v_proj(e_encoded_and_embedded)
+
+    query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
+    key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+    value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+
+    kv_seq_len = key_states.shape[-2]
+    cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
+
+    query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+    key_states = repeat_kv(key_states, self.num_key_value_groups)
+    value_states = repeat_kv(value_states, self.num_key_value_groups)
+
+    # Finally, perform scaled dot-product attention and return
+    attn_output = torch.nn.functional.scaled_dot_product_attention(
+            query_states,
+            key_states,
+            value_states,
+            attn_mask=None,
+            dropout_p=self.attention_dropout if self.training else 0.0,
+            is_causal=self.is_causal and q_len > 1,)
+    attn_output = attn_output.transpose(1, 2).contiguous()
+    attn_output = attn_output.reshape(bsz, q_len, self.hidden_size)
+    attn_output = self.o_proj(attn_output)
+    return attn_output
 
 def cca_attn(self, hidden_states):
     input_ids = self.biollama.model.input_ids_biollama[0]
-    print("entered cca_attn!")
-    print(f"input_ids have length: {len(input_ids)}")
+    # print("entered cca_attn!")
+    # print(f"input_ids have length: {len(input_ids)}")
     n = len(input_ids)
     m = self.biollama.neighbour_length
     l = math.ceil(n/m)
@@ -89,15 +130,17 @@ def cca_attn(self, hidden_states):
     ca_list = torch.Tensor([])
     for i in range(len(Hplus_list)): # for these spliced chunks in Hplus_list, calculate cross attentions with neighbours
         Hplus_ca = ca(self, Hplus_list[i], E_no_continuations[i])
-        if ca_list == torch.Tensor([]):
+        if ca_list.shape == torch.Size([0]):
             ca_list = Hplus_ca
         else:
             ca_list = torch.cat((ca_list, Hplus_ca), dim=1)
     
     # concatenate together, following RETRO
-    last_tokens_offset = (m-1) + num_spliced_chunks*m
-    prefix_and_ca_tensors = torch.cat((hidden_states[:,0:m-1], ca_list), dim=1)
-    output = torch.cat((prefix_and_ca_tensors, hidden_states[:,last_tokens_offset:]), dim=1)
+    prefix_offset = m-1
+    suffix_offset = (m-1) + num_spliced_chunks*m
+    prefix = hidden_states[:,0:prefix_offset]
+    suffix = hidden_states[:,suffix_offset:]
+    output = torch.cat((prefix, ca_list, suffix), dim=1)
     return output
 
 

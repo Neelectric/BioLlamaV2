@@ -40,8 +40,8 @@ lookup_count = 0
 # file_count = 0
 
 for i, source_file in tqdm(enumerate(source_files)):
-    if i > 28 and i < 30:
-        batch_size = 32
+    if i == 30:
+        batch_size = 128
         all_embeddings = []
         all_chunks = []
         tsv_basename = os.path.basename(source_file).split(".")[0]
@@ -50,7 +50,7 @@ for i, source_file in tqdm(enumerate(source_files)):
 
         with open(source_file, 'r') as file:
             lines = file.readlines()
-            for start_idx in tqdm(range(0, len(lines), batch_size), disable=True):
+            for start_idx in tqdm(range(0, len(lines), batch_size), disable = False):
                 all_chunks = []
                 end_idx = min(start_idx + batch_size, len(lines))
                 batch_abstracts = [line.strip() for line in lines[start_idx:end_idx]]

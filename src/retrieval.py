@@ -45,39 +45,25 @@ def retrieve(queries: List[str],
              db_json: dict
              ) -> List[str]:
     output = []
-    print("retrieve was called")
+
+    # Per query, we embed using MedCPT, perform FAISS ANN and then rerank if requested
     for query in queries:
-        print(f"Retrieving for query: {query}")
         with torch.no_grad(): # This code is taken directly from the MedCPT GitHub/HF tutorial
-            # tokenize the queries
-            encoded = query_tokenizer(
-                query,
-                truncation=True,
-                padding=True,
-                return_tensors="pt",
-                max_length=512,
-            ).to("cuda:0")
-            # encode the queries (use the [CLS] last hidden states as the representations)
-            # encoded.to("cuda:0")
+            encoded = query_tokenizer(query, truncation=True, padding=True, return_tensors="pt",max_length=512,).to("cuda:0")
             embeds = query_model(**encoded).last_hidden_state[:, 0, :]
         
         distances, indices = db_faiss.search(embeds.to('cpu').numpy(), k)
         distances = distances.flatten()
         indices = indices.flatten()
         neighbours = [db_json[str(idx)] for idx in indices]
-
+        continuations = [db_json[str(idx+1)] for idx in indices] #  Could use this to implement continuations
         if k > 1:
             pairs = [[query, neighbour] for neighbour in neighbours]
             with torch.no_grad():
-                encoded = rerank_tokenizer(
-                    pairs,
-                    truncation=True,
-                    padding=True,
-                    return_tensors="pt",
-                    max_length=512,
-                ).to("cuda:0")
+                encoded = rerank_tokenizer(pairs, truncation=True, padding=True, return_tensors="pt", max_length=512,).to("cuda:0")
                 logits = rerank_model(**encoded).logits.squeeze(dim=1)
                 sorted_scores = sorted(zip(neighbours, logits), key=lambda x: x[1], reverse=True)
+                sorted_chunkid_indices = sorted(zip(indices, logits), key=lambda x: x[1], reverse=True) # Could use this to implement continuations
                 new_chunks = [x[0] for x in sorted_scores]
                 top_chunks = new_chunks[0:top_k]
         else:

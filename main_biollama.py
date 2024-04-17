@@ -30,7 +30,7 @@ biollama = BioLlama(model_path = llama_path,
 
 print("created biollama")
 
-output, num_new_tokens, time_taken = biollama.generate(medmcqa2, max_new_tokens=5)
+output, num_new_tokens, time_taken = biollama.generate(medmcqa2, max_new_tokens=25)
 print(output)
 print(torch_dtype)
 print(f"newly generated {num_new_tokens}")
