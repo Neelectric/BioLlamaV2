@@ -29,7 +29,7 @@ llama_path = "meta-llama/Llama-2-7b-chat-hf"
 medcpt_path = "ncbi/MedCPT-Article-Encoder"
 llama2_tokenizer = AutoTokenizer.from_pretrained(llama_path, cache_dir = "../hf_cache/")
 document_tokenizer = AutoTokenizer.from_pretrained(medcpt_path)
-document_model = AutoModel.from_pretrained(medcpt_path).to('cuda:0')
+document_model = AutoModel.from_pretrained(medcpt_path).to('cuda:1')
 embeds_dir = '/root/nfs/pubmed_cleaned_embeds'
 os.makedirs(embeds_dir, exist_ok=True)
 
@@ -40,7 +40,7 @@ lookup_count = 0
 # file_count = 0
 
 for i, source_file in tqdm(enumerate(source_files)):
-    if i == 30:
+    if True:
         batch_size = 128
         all_embeddings = []
         all_chunks = []
@@ -50,7 +50,7 @@ for i, source_file in tqdm(enumerate(source_files)):
 
         with open(source_file, 'r') as file:
             lines = file.readlines()
-            for start_idx in tqdm(range(0, len(lines), batch_size), disable = False):
+            for start_idx in tqdm(range(0, len(lines), batch_size), disable = True):
                 all_chunks = []
                 end_idx = min(start_idx + batch_size, len(lines))
                 batch_abstracts = [line.strip() for line in lines[start_idx:end_idx]]
@@ -60,7 +60,7 @@ for i, source_file in tqdm(enumerate(source_files)):
                         all_chunks += chunks
                 
                 tokens = document_tokenizer(all_chunks, padding=True, return_tensors="pt")
-                input_ids = tokens.input_ids.to("cuda:0")
+                input_ids = tokens.input_ids.to("cuda:1")
                 step_size = 25
                 for i in tqdm(range(0, len(input_ids), step_size), disable = True):
                     temp_input_ids = input_ids[i:i+step_size]
@@ -68,8 +68,8 @@ for i, source_file in tqdm(enumerate(source_files)):
                         embeds = document_model(temp_input_ids).last_hidden_state[:, 0, :]
                         all_embeddings.extend(embeds.cpu().numpy())
 
-        embeds_path = os.path.join(embeds_dir, f"{tsv_basename}.npy")
-        np.save(embeds_path, np.array(all_embeddings))
+        # embeds_path = os.path.join(embeds_dir, f"{tsv_basename}.npy")
+        # np.save(embeds_path, np.array(all_embeddings))
 
 #         for chunk in all_chunks:
 #             lookup_table[lookup_count] = chunk

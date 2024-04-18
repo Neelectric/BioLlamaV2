@@ -5,9 +5,15 @@ import torch
 from transformers import AutoTokenizer, AutoModel
 import json
 import orjson
+from tqdm import tqdm
 from time import time
 import multiprocessing
+import threading
 from itertools import islice
+
+import dask.bag as db
+import json
+from dask.distributed import Client
 
 
 embeddings_dir = '/root/nfs/pubmed_cleaned_embeds/'
@@ -23,50 +29,20 @@ time_after_index_load = time()
 time_to_load_index = time_after_index_load - time_before_index_load
 print(f"Time to load index: {time_to_load_index}")
 
-# time_before_json_load = time()
-# db_json = orjson.loads(open(index_path + "lookup_table_definitive.json", "r").read())
-# time_after_json_load = time()
-# time_to_load_json = time_after_json_load - time_before_json_load
-# print(f"Time to load json: {time_to_load_json}")
 
-def load_chunk(chunk, result_queue):
-    data = orjson.loads(''.join(chunk))
-    result_queue.put(data)
 
-def load_json_parallel(file_path, num_processes=4, chunk_size=10000):
-    pool = multiprocessing.Pool(processes=num_processes)
-    result_queue = multiprocessing.Manager().Queue()
-    tasks = []
-
-    with open(file_path, 'r') as f:
-        while True:
-            chunk = list(islice(f, chunk_size))
-            if not chunk:
-                break
-
-            task = pool.apply_async(load_chunk, args=(chunk, result_queue))
-            tasks.append(task)
-    results = []
-    for task in tasks:
-        task.wait()
-        results.append(result_queue.get())
-    pool.close()
-    pool.join()
-    return results
-
-# Example usage
+client = Client()
+client.dashboard_link
 file_path = index_path + "lookup_table_definitive.json"
-num_processes = 8  # Adjust the number of processes based on your system
-
 time_before_json_load = time()
-results = load_json_parallel(file_path, num_processes=num_processes)
+bag = db.read_text(file_path, blocksize=100 * 1000 * 1000).map(json.loads)
+
+# results = load_json_parallel(file_path, num_processes=num_threads)
 time_after_json_load = time()
 time_to_load_json = time_after_json_load - time_before_json_load
 print(f"Time to load json: {time_to_load_json}")
-# Combine the results into a single dictionary
-combined_data = {}
-for result in results:
-    combined_data.update(result)
+
+
 
 
 
