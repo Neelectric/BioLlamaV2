@@ -14,10 +14,12 @@ def promptify(
     return prompt
 
 def promptify_benchmark(
-    benchmark_dataset: DatasetDict,
-    benchmark_name: str,
-    question: str,
+    benchmark_dataset,
+    benchmark_start_idx: int,
+    num_questions: int,
     ) -> Tuple[List[str], List[str]]:
     benchmark_end_idx = benchmark_start_idx + num_questions
+
+    
     return ([],[])
 

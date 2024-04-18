@@ -4,7 +4,7 @@
 from typing import List
 import torch
 from src.load_benchmark import load_benchmark
-from src.promptify import promptify
+from src.promptify import promptify, promptify_benchmark
 from src.model_kitchen import model
 
 
@@ -22,18 +22,18 @@ def run_benchmark(
         ):
     
     # Load the benchmark
-    benchmark_dataset = load_benchmark(benchmark_name = benchmark_name,
+    benchmark_prompts, benchmark_answers = load_benchmark(benchmark_name = benchmark_name,
                                 benchmark_start_idx = benchmark_start_idx, 
                                 num_questions = num_questions)
     
     # Turn the questions into prompts
-    benhchmark_prompt_list = promptify_benchmark(benchmark_dataset = benchmark_dataset,
-                                                benchmark_start_idx = benchmark_start_idx, 
-                                                num_questions = num_questions)
+    # benchmark_prompts, benchmark_answers = promptify_benchmark(benchmark_dataset = benchmark_dataset,
+    #                                             benchmark_start_idx = benchmark_start_idx, 
+    #                                             num_questions = num_questions)
     prompts = []
-    for question in benchmark_questions[benchmark_start_idx : benchmark_end_idx]:
-        promptified_question = promptify(benchmark_name = benchmark_name, question = question)
-        prompts.append(promptified_question)
+    # for question in benchmark_questions[benchmark_start_idx : benchmark_end_idx]:
+    #     promptified_question = promptify(benchmark_name = benchmark_name, question = question)
+    #     prompts.append(promptified_question)
     
     # Create a model object
     torch_dtype = torch.float32 # temporarily hardcoding this
