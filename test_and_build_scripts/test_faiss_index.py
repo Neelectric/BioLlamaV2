@@ -30,14 +30,14 @@ time_to_load_index = time_after_index_load - time_before_index_load
 print(f"Time to load index: {time_to_load_index}")
 
 
-
-client = Client()
+num_workers = 4  # Set the number of workers
+num_threads_per_worker = 2  # Set the number of threads per worker
+client = Client(n_workers=num_workers, threads_per_worker=num_threads_per_worker)
+# client = Client()
 client.dashboard_link
 file_path = index_path + "lookup_table_definitive.json"
 time_before_json_load = time()
 bag = db.read_text(file_path, blocksize=100 * 1000 * 1000).map(json.loads)
-
-# results = load_json_parallel(file_path, num_processes=num_threads)
 time_after_json_load = time()
 time_to_load_json = time_after_json_load - time_before_json_load
 print(f"Time to load json: {time_to_load_json}")
