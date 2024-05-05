@@ -7,6 +7,7 @@ import faiss
 from time import time
 import json
 import torch
+import sqlite3
 
 def load_db(db_name: str, retriever_name: str, neighbour_length: int) -> Tuple[faiss.IndexFlatIP, dict]:
     """
@@ -30,9 +31,28 @@ def load_db(db_name: str, retriever_name: str, neighbour_length: int) -> Tuple[f
     print(f"Time to load index: {time_to_load_index}")
     if retriever_name == "medcpt":
         retriever_name = "definitive"
+    time_before_json_load = time()
     with open("/root/nfs/pubmed_cleaned_index/lookup_table_" + retriever_name + ".json", "r") as file:
         db_json = json.load(file)
+    time_after_json_load = time()
+    time_to_load_json = time_after_json_load - time_before_json_load
+    print(f"Time to load json: {time_to_load_json}")
+    # db_json = None
     return cpu_index, db_json
+
+def id_2_chunk(id):
+    conn = sqlite3.connect('/root/nfs/pubmed_cleaned_index/lookup_table.db')
+    cur = conn.cursor()
+    cur.execute("SELECT chunk FROM chunks WHERE id = ?", (id,))
+    result = cur.fetchone()
+    if result:
+        print(result[0])  # Print the chunk
+        result = result[0]
+    else:
+        print("Chunk not found")
+    conn.close()
+    return result
+
 
 def retrieve(queries: List[str],
              neighbour_length: int,
@@ -56,8 +76,12 @@ def retrieve(queries: List[str],
         distances, indices = db_faiss.search(embeds.to('cpu').numpy(), k)
         distances = distances.flatten()
         indices = indices.flatten()
+        print(distances)
+        print(indices)
         neighbours = [db_json[str(idx)] for idx in indices]
-        continuations = [db_json[str(idx+1)] for idx in indices] #  Could use this to implement continuations
+        print(neighbours)
+        # neighbours = [id_2_chunk(idx) for idx in indices]
+        # continuations = [db_json[str(idx+1)] for idx in indices] #  Could use this to implement continuations
         if k > 1:
             pairs = [[query, neighbour] for neighbour in neighbours]
             with torch.no_grad():
@@ -73,7 +97,8 @@ def retrieve(queries: List[str],
     return output
 
 def main():
-    queries = ["diabetes treatment"]
+    # '. Recent innovative treatment approaches target the multiple pathophysiological defects present in type 2 diabetes. Optimal management should include early'
+    queries = [". Recent innovative treatment approaches target the multiple pathophysiological defects present in "]
     db_name = "pma"
     neighbour_length = 32
     verbose = True
@@ -82,8 +107,9 @@ def main():
     rerank_tokenizer = AutoTokenizer.from_pretrained("ncbi/MedCPT-Cross-Encoder")
     rerank_model = AutoModelForSequenceClassification.from_pretrained("ncbi/MedCPT-Cross-Encoder", device_map = "cuda:0")
     top_k = 5
-    k = 5
+    k = 20
     db_faiss, db_json = load_db(db_name, "medcpt", neighbour_length)
+    print("db loaded, starting to retrieve")
     output = retrieve(queries,  
                       neighbour_length,  
                       query_tokenizer, 

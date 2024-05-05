@@ -21,7 +21,7 @@ index_path = '/root/nfs/pubmed_cleaned_index/'
 
 # load all files under /root/nfs/pubmed_cleaned/ as a list
 embeds_files = glob.glob("/root/nfs/pubmed_cleaned/*.tsv")
-print(embeds_files)
+# print(embeds_files)
 
 time_before_index_load = time()
 my_index = faiss.read_index(index_path + "medcpt_index.faiss")
@@ -30,57 +30,48 @@ time_to_load_index = time_after_index_load - time_before_index_load
 print(f"Time to load index: {time_to_load_index}")
 
 
-num_workers = 4  # Set the number of workers
-num_threads_per_worker = 2  # Set the number of threads per worker
-client = Client(n_workers=num_workers, threads_per_worker=num_threads_per_worker)
-# client = Client()
-client.dashboard_link
-file_path = index_path + "lookup_table_definitive.json"
-time_before_json_load = time()
-bag = db.read_text(file_path, blocksize=100 * 1000 * 1000).map(json.loads)
-time_after_json_load = time()
-time_to_load_json = time_after_json_load - time_before_json_load
-print(f"Time to load json: {time_to_load_json}")
+# num_workers = 4  # Set the number of workers
+# num_threads_per_worker = 2  # Set the number of threads per worker
+# client = Client(n_workers=num_workers, threads_per_worker=num_threads_per_worker)
+# # client = Client()
+# client.dashboard_link
+# file_path = index_path + "lookup_table_definitive.json"
+# time_before_json_load = time()
+# bag = db.read_text(file_path, blocksize=100 * 1000 * 1000).map(json.loads)
+# time_after_json_load = time()
+# time_to_load_json = time_after_json_load - time_before_json_load
+# print(f"Time to load json: {time_to_load_json}")
 
+model = AutoModel.from_pretrained("ncbi/MedCPT-Query-Encoder")
+tokenizer = AutoTokenizer.from_pretrained("ncbi/MedCPT-Query-Encoder")
 
+queries = [
+	"diabetes treatment", 
+	"How to treat diabetes?", 
+	"A 45-year-old man presents with increased thirst and frequent urination over the past 3 months.",
+]
 
-
-
-# model = AutoModel.from_pretrained("ncbi/MedCPT-Query-Encoder")
-# tokenizer = AutoTokenizer.from_pretrained("ncbi/MedCPT-Query-Encoder")
-
-# queries = [
-# 	"diabetes treatment", 
-# 	"How to treat diabetes?", 
-# 	"A 45-year-old man presents with increased thirst and frequent urination over the past 3 months.",
-# ]
-
-# with torch.no_grad():
-# 	encoded = tokenizer(
-# 		queries[0], 
-# 		truncation=True, 
-# 		padding=True, 
-# 		return_tensors='pt', 
-# 		max_length=64,
-# 	)
+with torch.no_grad():
+	encoded = tokenizer(
+		queries[0], 
+		truncation=True, 
+		padding=True, 
+		return_tensors='pt', 
+		max_length=64,
+	)
 	
-# 	embeds = model(**encoded).last_hidden_state[:, 0, :]
-# 	print(embeds.size())
+	embeds = model(**encoded).last_hidden_state[:, 0, :]
+	print(embeds.size())
 
-# time_after_encoding = time()
-# time_to_encode = time_after_encoding - time_after_index_load
-# print(f"Time to encode: {time_to_encode}")
+time_after_encoding = time()
+time_to_encode = time_after_encoding - time_after_index_load
+print(f"Time to encode: {time_to_encode}")
 
-# k = 5
-# distances, indices = my_index.search(embeds, k)
-# time_after_search = time()
-# time_to_search = time_after_search - time_after_encoding
-# print(f"Time to search: {time_to_search}")
-
-# # temp = my_index.search_level_0(embeds, k) # missing 5 required positional arguments: 'k', 'nearest', 'nearest_d', 'distances', and 'labels'
-# # temp3 = my_index.search_c(embeds,k) # missing 3 required positional arguments: 'k', 'distances', and 'labels'
-# # temp4 = my_index.search_and_reconstruct(embeds, k)
-# # temp5 = my_index.range_search(embeds, k)
+k = 5
+distances, indices = my_index.search(embeds, k)
+time_after_search = time()
+time_to_search = time_after_search - time_after_encoding
+print(f"Time to search: {time_to_search}")
 
 # # print(list(zip(distances[0], indices[0])))
 
