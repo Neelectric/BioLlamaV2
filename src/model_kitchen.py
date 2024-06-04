@@ -11,7 +11,7 @@ def prepare_model_path(
         model_size: str,
         model_state: str,
 ) -> str:
-    model_path = "meta-llama/Llama-2-13b-chat-hf"
+    model_path = "meta-llama/Llama-2-70b-chat-hf"
     return model_path
 
 def model( 

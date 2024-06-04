@@ -23,7 +23,7 @@ else:
     RETRO_layer_ids = []
 
 # Defining the benchmark to use
-benchmark_name = "MedMCQA" # eg. "BioASQ5b", "PubMedQA", "MedQA-4", "MedQA-5", "MedMCQA"
+benchmark_name = "BioASQ6b" # eg. "BioASQ6b", "PubMedQA", "MedQA-4", "MedQA-5", "MedMCQA"
 benchmark_start_idx = 10
 num_questions = 1000
 
