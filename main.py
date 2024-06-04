@@ -16,6 +16,11 @@ if model_type == "BioLlama":
     retriever_name = "MedCPT"
     neighbour_length = 32
     RETRO_layer_ids = [15]
+else:
+    db_name = ""
+    retriever_name = ""
+    neighbour_length = -1
+    RETRO_layer_ids = []
 
 # Defining the benchmark to use
 benchmark_name = "MedMCQA" # eg. "BioASQ5b", "PubMedQA", "MedQA-4", "MedQA-5", "MedMCQA"
