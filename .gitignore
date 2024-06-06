@@ -162,3 +162,5 @@ cython_debug/
 config.yml
 wandb/
 rct200k/train.txt
+rct200k/train_cleaned.json
+rct200k/train_chunks.json
