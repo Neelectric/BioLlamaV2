@@ -2,7 +2,6 @@ from time import time
 from src.biollama import BioLlama
 import torch
 
-
 max_new_tokens = 5
 prompt = "In the era of generative AI, "
 medmcqa2 = """
@@ -15,7 +14,7 @@ Low insulin to glucagon ratio is not seen in:
 Answer. 
 """
 llama_path = "meta-llama/Llama-2-7b-chat-hf"
-torch_dtype = torch.float32
+torch_dtype = torch.float16
 retriever_name = "medcpt"
 db_name = "pma"
 neighbour_length = 32

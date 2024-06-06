@@ -210,11 +210,12 @@ class BioLlama():
         
         # Model setup
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(self.device)
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, cache_dir = "../hf_cache/")
         self.model = AutoModelForCausalLM.from_pretrained(model_path, 
                                                           cache_dir = "../hf_cache/", 
-                                                        #   device_map = "auto", 
-                                                          device_map = "cuda:0",
+                                                          device_map = "auto", 
+                                                        #   device_map = "cuda:0",
                                                           torch_dtype = torch_dtype)
         self.model.generation_config.use_cache = False # Editing the generation config to use
         self.model.generation_config.do_sample = False # GenerationMode.GREEDY_SEARCH in the hopes
